@@ -131,8 +131,8 @@ This video covers essential concepts about the topic. The presenter explains key
             <Video size={22} />
           </div>
           <div>
-            <div style={{ fontSize: '16px', fontWeight: '700', color: 'white' }}>VideoSum AI</div>
-            <div style={{ fontSize: '12px', color: '#9ca3af' }}>Video Summarizer</div>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: 'white' }}>SparkClip</div>
+            <div style={{ fontSize: '12px', color: '#9ca3af' }}></div>
           </div>
         </div>
         
