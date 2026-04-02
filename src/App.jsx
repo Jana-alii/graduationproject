@@ -1,86 +1,144 @@
-import React, { useState, useEffect } from 'react';
-import HomePage from './HomePage';
-import ChatPage from './ChatPage';
-import LoginPage from './LoginPage';
-import SignUpPage from './SignUpPage';
+import React, { useEffect, useState } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 
-export default function App() {
-  const [currentPage, setCurrentPage] = useState('home');
-  const [theme, setTheme] = useState('blue');
-  const [user, setUser] = useState(null);
+import HomePage from "./Pages/HomePage.jsx";
+import Login from "./Pages/Login.jsx";
+import Signup from "./Pages/Signup.jsx";
+import Subjects from "./Pages/Subjects.jsx";
+import Chat from "./Pages/Chat.jsx";
 
-  // Load user from localStorage on mount
+import { useAuth } from "./hooks/useAuth";
+
+function RequireAuth({ user, children }) {
+  const location = useLocation();
+  if (!user) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
+  return children;
+}
+
+function AppRoutes() {
+  const nav = useNavigate();
+  const auth = useAuth();
+
+  // ✅ GLOBAL THEME
+  const [dark, setDark] = useState(() => {
+    const saved = localStorage.getItem("lb_theme");
+    return saved ? saved === "dark" : false;
+  });
+
   useEffect(() => {
-    const savedUser = localStorage.getItem('videosum_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-  }, []);
+    document.body.classList.toggle("dark", dark);
+    localStorage.setItem("lb_theme", dark ? "dark" : "light");
+  }, [dark]);
 
-  // Save user to localStorage when it changes
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('videosum_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('videosum_user');
-    }
-  }, [user]);
+  const onToggleTheme = () => setDark((v) => !v);
 
-  const handleLogin = (userData) => {
-    setUser(userData);
+  const onGetStarted = () => {
+    if (auth.user) nav("/subjects");
+    else nav("/signup?next=/subjects");
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('videosum_user');
-    setCurrentPage('home');
-  };
-
-  const handleNavigate = (page) => {
-    // Protect chat page - require login
-    if (page === 'chat' && !user) {
-      setCurrentPage('login');
-    } else {
-      setCurrentPage(page);
+  const onNavigate = (to) => {
+    if (typeof to === "string" && to.startsWith("/")) {
+      nav(to);
+      return;
     }
+
+    if (to === "home") return nav("/");
+    if (to === "login") return nav("/login");
+    if (to === "signup") return nav("/signup");
+    if (to === "subjects") return nav("/subjects");
+    if (to === "chat") return nav("/chat");
+
+    console.log("Unknown navigation target:", to);
   };
 
   return (
-    <div>
-      {currentPage === 'home' && (
-        <HomePage 
-          onNavigate={handleNavigate} 
-          theme={theme} 
-          setTheme={setTheme}
-          user={user}
-          onLogout={handleLogout}
-        />
-      )}
-      
-      {currentPage === 'chat' && (
-        <ChatPage 
-          onNavigate={handleNavigate}
-          theme={theme}
-          user={user}
-          onLogout={handleLogout}
-        />
-      )}
-      
-      {currentPage === 'login' && (
-        <LoginPage 
-          onNavigate={handleNavigate}
-          onLogin={handleLogin}
-          theme={theme}
-        />
-      )}
-      
-      {currentPage === 'signup' && (
-        <SignUpPage 
-          onNavigate={handleNavigate}
-          onSignUp={handleLogin}
-          theme={theme}
-        />
-      )}
-    </div>
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <HomePage
+            user={auth.user}
+            onLogout={auth.logout}
+            onNavigate={onNavigate}
+            onGetStarted={onGetStarted}
+            onToggleTheme={onToggleTheme}
+            dark={dark}
+          />
+        }
+      />
+
+      <Route
+        path="/login"
+        element={
+          <Login
+            loading={auth.loading}
+            onSubmit={auth.login}
+            onToggleTheme={onToggleTheme}
+            dark={dark}
+          />
+        }
+      />
+
+      <Route
+        path="/signup"
+        element={
+          <Signup
+            onSubmit={auth.signup}
+            loading={auth.loading}
+            onToggleTheme={onToggleTheme}
+            dark={dark}
+          />
+        }
+      />
+
+      <Route
+        path="/subjects"
+        element={
+          <RequireAuth user={auth.user}>
+            <Subjects
+              user={auth.user}
+              subjects={[]} // خليها فاضية لحد ما تربطي backend
+              token={auth.token}
+              onLogout={auth.logout}
+              onToggleTheme={onToggleTheme}
+              dark={dark}
+              onOpenSubject={(id) =>
+                nav(`/chat?subject=${encodeURIComponent(id)}`)
+              }
+            />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/chat"
+        element={
+          <RequireAuth user={auth.user}>
+            <Chat user={auth.user} onToggleTheme={onToggleTheme} dark={dark} />
+          </RequireAuth>
+        }
+      />
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }
